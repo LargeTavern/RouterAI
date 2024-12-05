@@ -1,0 +1,36 @@
+{
+    "https://api.openai.com": {
+        "type": "openai",
+        "api_key": "sk-your-api-key"
+    },
+    "https://{resource-name}.openai.azure.com": {
+        "type": "azure",
+        "api_key": "your-azure-key",
+        "resource_name": "your-resource-name",
+        "deployment_name": "your-deployment",
+        "api_version": "2023-05-15"
+    },
+    "https://api.anthropic.com": {
+        "type": "anthropic",
+        "api_key": "sk-ant-your-key",
+        "api_version": "2023-06-01"
+    },
+    "https://us-central1-aiplatform.googleapis.com": {
+        "type": "vertex",
+        "project_id": "your-project",
+        "location": "us-central1"
+    },
+    "https://bedrock.us-east-1.amazonaws.com": {
+        "type": "bedrock",
+        "region": "us-east-1",
+        "access_key_id": "your-access-key",
+        "secret_access_key": "your-secret-key"
+    },
+    "http://localhost:11434": {
+        "type": "ollama"
+    },
+    "https://generativelanguage.googleapis.com": {
+        "type": "google",
+        "api_key": "your-api-key"
+    }
+}
