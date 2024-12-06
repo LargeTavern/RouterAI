@@ -42,6 +42,19 @@ RouterAI stands apart from alternatives like OneAPI and FastChat by focusing on 
 
 ```bash
 npm install
+cp .env.example .env  # Create your environment configuration
+```
+
+## Environment Configuration
+
+Configure your environment variables in `.env`:
+
+```bash
+# Server Configuration
+PORT=3000              # Server port (default: 3000)
+
+# Logging Configuration
+LOGGING=true           # Enable/disable logging (default: true)
 ```
 
 ## Configuration

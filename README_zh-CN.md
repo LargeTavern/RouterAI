@@ -42,6 +42,19 @@ RouterAI与OneAPI和FastChat等替代方案的区别在于关注以下关键方�
 
 ```bash
 npm install
+cp .env.example .env  # 创建环境配置
+```
+
+## 环境配置
+
+在`.env`中配置环境变量：
+
+```bash
+# 服务器配置
+PORT=3000              # 服务器端口（默认：3000）
+
+# 日志配置
+LOGGING=true           # 启用/禁用日志（默认：true）
 ```
 
 ## 配置

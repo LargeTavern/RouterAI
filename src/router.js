@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { getBaseModel } = require('./modelAliases');
+const logger = require('./utils/logger');
 
 class AIRouter {
     constructor() {
@@ -133,18 +134,74 @@ class AIRouter {
     }
 
     async callEndpoint(endpoint, provider, params, modelId) {
-        const options = { ...params, model: modelId };
+        if (endpoint === 'embeddings') {
+            const options = { ...params, model: modelId };
+            const response = await provider.embeddings(params.input, options);
+            logger.log('embeddings-response', response);
+            return response;
+        }
+
+        const options = { 
+            ...params,
+            model: modelId,
+            stream: true
+        };
         
+        let response;
         switch (endpoint) {
             case 'chat/completions':
-                return provider.chatCompletion(params.messages, options);
+                response = await provider.chatCompletion(params.messages, options);
+                break;
             case 'completions':
-                return provider.textCompletion(params.prompt, options);
-            case 'embeddings':
-                return provider.embeddings(params.input, options);
+                response = await provider.textCompletion(params.prompt, options);
+                break;
             default:
                 throw new Error(`Endpoint ${endpoint} not supported`);
         }
+
+        if (!params.stream) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let chunks = [];
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                chunks.push(decoder.decode(value, { stream: true }));
+            }
+
+            const fullResponse = chunks
+                .join('')
+                .split('\n')
+                .filter(line => line.trim().startsWith('data: '))
+                .map(line => line.replace('data: ', '').trim())
+                .filter(line => line !== '[DONE]')
+                .map(line => JSON.parse(line));
+
+            logger.log('collected-chunks', fullResponse);
+
+            const combinedResponse = {
+                id: fullResponse[0]?.id || 'combined_response',
+                object: fullResponse[0]?.object || 'chat.completion',
+                created: fullResponse[0]?.created || Math.floor(Date.now() / 1000),
+                model: modelId,
+                choices: [{
+                    index: 0,
+                    message: {
+                        role: "assistant",
+                        content: fullResponse.map(chunk => 
+                            chunk.choices[0]?.delta?.content || ''
+                        ).join('')
+                    },
+                    finish_reason: fullResponse[fullResponse.length - 1]?.choices[0]?.finish_reason || 'stop'
+                }]
+            };
+
+            logger.log('combined-response', combinedResponse);
+            return combinedResponse;
+        }
+
+        return response;
     }
 
     isRateLimitError(error) {

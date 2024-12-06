@@ -1,6 +1,6 @@
 {
   "name": "routerai",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "A flexible AI model router that provides unified access to multiple AI providers under OpenAI's format",
   "main": "src/index.js",
   "private": true,
