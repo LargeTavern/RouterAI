@@ -41,18 +41,14 @@ class Logger {
         return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}.${date.getMilliseconds().toString().padStart(3, '0')}`;
     }
 
-    log(type, data) {
+    log(type, data, provider = 'system') {
         if (this.disabled) return;
         
         const now = new Date();
-        const entry = {
-            timestamp: now.toISOString(),
-            formatted_time: this.formatTimestamp(now),
-            type,
-            data
-        };
+        const timestamp = this.formatTimestamp(now);
+        const logMessage = `[${timestamp} | ${provider} | ${type}] ${JSON.stringify(data)}\n`;
         
-        this.stream.write(JSON.stringify(entry) + '\n');
+        this.stream.write(logMessage);
     }
 }
 

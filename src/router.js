@@ -134,10 +134,12 @@ class AIRouter {
     }
 
     async callEndpoint(endpoint, provider, params, modelId) {
+        const providerName = provider.constructor.name;
+        
         if (endpoint === 'embeddings') {
             const options = { ...params, model: modelId };
             const response = await provider.embeddings(params.input, options);
-            logger.log('embeddings-response', response);
+            logger.log('embeddings-response', response, providerName);
             return response;
         }
 
@@ -178,7 +180,7 @@ class AIRouter {
                 .filter(line => line !== '[DONE]')
                 .map(line => JSON.parse(line));
 
-            logger.log('collected-chunks', fullResponse);
+            logger.log('collected-chunks', fullResponse, providerName);
 
             const combinedResponse = {
                 id: fullResponse[0]?.id || 'combined_response',
@@ -197,7 +199,7 @@ class AIRouter {
                 }]
             };
 
-            logger.log('combined-response', combinedResponse);
+            logger.log('combined-response', combinedResponse, providerName);
             return combinedResponse;
         }
 

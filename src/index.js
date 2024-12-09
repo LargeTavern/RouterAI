@@ -42,23 +42,23 @@ const handleStreamingResponse = (response, res) => {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) {
-                    logger.log('stream-end', 'DONE');
+                    logger.log('stream-end', 'DONE', 'stream-handler');
                     res.write('data: [DONE]\n\n');
                     res.end();
                     break;
                 }
                 const chunk = textDecoder.decode(value, { stream: true });
-                logger.log('stream-chunk', chunk);
+                logger.log('stream-chunk', chunk, 'stream-handler');
                 res.write(chunk);
             }
         } catch (error) {
-            logger.log('stream-error', error.message);
+            logger.log('stream-error', error.message, 'stream-handler');
             res.end();
         }
     }
 
     streamResponse().catch(error => {
-        logger.log('stream-processing-error', error.message);
+        logger.log('stream-processing-error', error.message, 'stream-handler');
         res.end();
     });
 
@@ -68,6 +68,8 @@ const handleStreamingResponse = (response, res) => {
 };
 
 app.post('/v1/chat/completions', async (req, res) => {
+    logger.log('app-request', { endpoint: 'chat/completions', body: req.body }, 'application');
+    
     if (!req.body.messages || !Array.isArray(req.body.messages)) {
         return jsonResponse(res, 400, {
             error: { message: "messages is required and must be an array" }
@@ -79,14 +81,18 @@ app.post('/v1/chat/completions', async (req, res) => {
         if (req.body.stream) {
             handleStreamingResponse(response, res);
         } else {
+            logger.log('app-response', response, 'application');
             jsonResponse(res, 200, response);
         }
     } catch (error) {
+        logger.log('app-error', error.message, 'application');
         jsonResponse(res, 500, { error: { message: error.message } });
     }
 });
 
 app.post('/v1/completions', async (req, res) => {
+    logger.log('app-request', { endpoint: 'completions', body: req.body }, 'application');
+    
     if (!req.body.prompt) {
         return jsonResponse(res, 400, {
             error: { message: "prompt is required", type: "invalid_request_error" }
@@ -98,14 +104,18 @@ app.post('/v1/completions', async (req, res) => {
         if (req.body.stream) {
             handleStreamingResponse(response, res);
         } else {
+            logger.log('app-response', response, 'application');
             jsonResponse(res, 200, response);
         }
     } catch (error) {
+        logger.log('app-error', error.message, 'application');
         jsonResponse(res, 500, { error: { message: error.message } });
     }
 });
 
 app.post('/v1/embeddings', (req, res) => {
+    logger.log('app-request', { endpoint: 'embeddings', body: req.body }, 'application');
+    
     if (!req.body.input) {
         return jsonResponse(res, 400, {
             error: {
@@ -116,21 +126,32 @@ app.post('/v1/embeddings', (req, res) => {
     }
 
     router.route('embeddings', req.body)
-        .then(response => jsonResponse(res, 200, response))
-        .catch(error => jsonResponse(res, 500, {
-            error: { message: error.message }
-        }));
+        .then(response => {
+            logger.log('app-response', response, 'application');
+            jsonResponse(res, 200, response);
+        })
+        .catch(error => {
+            logger.log('app-error', error.message, 'application');
+            jsonResponse(res, 500, {
+                error: { message: error.message }
+            });
+        });
 });
 
 app.post('/admin/refresh-models', (req, res) => {
+    logger.log('app-request', { endpoint: 'refresh-models', body: req.body }, 'application');
+    
     router.refreshModels()
         .then(() => {
-            jsonResponse(res, 200, {
+            const response = {
                 success: true,
                 models: router.getAvailableModels()
-            });
+            };
+            logger.log('app-response', response, 'application');
+            jsonResponse(res, 200, response);
         })
         .catch(error => {
+            logger.log('app-error', error.message, 'application');
             jsonResponse(res, 500, {
                 error: {
                     message: error.message,
