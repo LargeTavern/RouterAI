@@ -29,7 +29,9 @@ app.get('/v1/models', (req, res) => {
     jsonResponse(res, 200, models);
 });
 
-const handleStreamingResponse = (response, res) => {
+const handleStreamingResponse = (response, res, req) => {
+    let isStreamClosed = false;
+
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
@@ -41,29 +43,44 @@ const handleStreamingResponse = (response, res) => {
         try {
             while (true) {
                 const { done, value } = await reader.read();
-                if (done) {
+                if (done || isStreamClosed) {
                     logger.log('stream-end', 'DONE', 'stream-handler');
-                    res.write('data: [DONE]\n\n');
-                    res.end();
+                    if (!isStreamClosed) {
+                        res.write('data: [DONE]\n\n');
+                        res.end();
+                    }
                     break;
                 }
                 const chunk = textDecoder.decode(value, { stream: true });
                 logger.log('stream-chunk', chunk, 'stream-handler');
-                res.write(chunk);
+                if (!isStreamClosed) {
+                    res.write(chunk);
+                }
             }
         } catch (error) {
             logger.log('stream-error', error.message, 'stream-handler');
-            res.end();
+            if (!isStreamClosed) {
+                res.end();
+            }
         }
     }
 
-    streamResponse().catch(error => {
-        logger.log('stream-processing-error', error.message, 'stream-handler');
-        res.end();
+    req.on('close', () => {
+        isStreamClosed = true;
+        reader.cancel();
     });
 
-    req.on('close', () => {
+    res.on('error', (error) => {
+        isStreamClosed = true;
+        logger.log('stream-error', error.message, 'stream-handler');
         reader.cancel();
+    });
+
+    streamResponse().catch(error => {
+        logger.log('stream-processing-error', error.message, 'stream-handler');
+        if (!isStreamClosed) {
+            res.end();
+        }
     });
 };
 
@@ -79,7 +96,7 @@ app.post('/v1/chat/completions', async (req, res) => {
     try {
         const response = await router.route('chat/completions', req.body);
         if (req.body.stream) {
-            handleStreamingResponse(response, res);
+            handleStreamingResponse(response, res, req);
         } else {
             logger.log('app-response', response, 'application');
             jsonResponse(res, 200, response);
@@ -102,7 +119,7 @@ app.post('/v1/completions', async (req, res) => {
     try {
         const response = await router.route('completions', req.body);
         if (req.body.stream) {
-            handleStreamingResponse(response, res);
+            handleStreamingResponse(response, res, req);
         } else {
             logger.log('app-response', response, 'application');
             jsonResponse(res, 200, response);
