@@ -53,6 +53,34 @@ const handleStreamingResponse = (response, res, req) => {
                 }
                 const chunk = textDecoder.decode(value, { stream: true });
                 logger.log('stream-chunk', chunk, 'stream-handler');
+
+                // Validate chunk format
+                const lines = chunk.split('\n');
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            // Skip validation for [DONE] message
+                            if (line.trim() === 'data: [DONE]') continue;
+                            
+                            const data = JSON.parse(line.slice(6));
+                            // Check for expected streaming response format
+                            if (!data.choices?.[0]?.delta && !data.choices?.[0]?.text) {
+                                throw new Error('Invalid streaming response format');
+                            }
+                        } catch (parseError) {
+                            logger.log('stream-format-error', parseError.message, 'stream-handler');
+                            if (!isStreamClosed) {
+                                res.write(`data: ${JSON.stringify({error: {
+                                    message: "Invalid response format from provider",
+                                    code: 500
+                                }})}\n\n`);
+                                res.end();
+                            }
+                            return;
+                        }
+                    }
+                }
+
                 if (!isStreamClosed) {
                     res.write(chunk);
                 }
@@ -60,6 +88,10 @@ const handleStreamingResponse = (response, res, req) => {
         } catch (error) {
             logger.log('stream-error', error.message, 'stream-handler');
             if (!isStreamClosed) {
+                res.write(`data: ${JSON.stringify({error: {
+                    message: error.message,
+                    code: error.code || 500
+                }})}\n\n`);
                 res.end();
             }
         }

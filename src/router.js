@@ -37,14 +37,18 @@ class AIRouter {
                 const models = await provider.listModels();
                 
                 for (const model of models.data) {
+                    // Use the complete URL (including port if present)
+                    const url = new URL(baseUrl);
+                    const fullUrl = url.host; // host includes both hostname and port if present
+                    const combinedModelId = `${fullUrl}::${model.id}`;
                     const baseModel = getBaseModel(model.id);
-                    if (!this.modelToSource.has(baseModel)) {
-                        this.modelToSource.set(baseModel, {
+                    if (!this.modelToSource.has(combinedModelId)) {
+                        this.modelToSource.set(combinedModelId, {
                             sources: [],
-                            modelData: model
+                            modelData: { ...model, id: combinedModelId }
                         });
                     }
-                    this.modelToSource.get(baseModel).sources.push({
+                    this.modelToSource.get(combinedModelId).sources.push({
                         baseUrl,
                         model: model.id,
                         config: source
@@ -76,8 +80,10 @@ class AIRouter {
 
     async route(endpoint, params) {
         const { model } = params;
-        const baseModel = getBaseModel(model);
-        const modelData = this.modelToSource.get(baseModel);
+        // Split the model name to get the actual model ID
+        const [domain, actualModel] = model.split('::');
+        const baseModel = getBaseModel(actualModel);
+        const modelData = this.modelToSource.get(model);
         
         if (!modelData || modelData.sources.length === 0) {
             throw new Error(`Model ${model} not supported`);
