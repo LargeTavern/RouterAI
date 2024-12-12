@@ -16,12 +16,17 @@ class OllamaProvider extends BaseProvider {
                     content: msg.content
                 })),
                 stream: false,
-                options: {
-                    temperature: options.temperature || 0.7,
-                    top_k: options.top_k || 40,
-                    top_p: options.top_p || 0.95,
-                    ...(options.max_tokens && { num_ctx: options.max_tokens })
-                }
+                ...(Object.keys(options).length > 0 && {
+                    options: {
+                        ...(options.temperature && { temperature: options.temperature }),
+                        ...(options.top_k && { top_k: options.top_k }),
+                        ...(options.top_p && { top_p: options.top_p }),
+                        ...(options.max_tokens && { num_ctx: options.max_tokens }),
+                        ...(options.frequency_penalty && { repeat_penalty: options.frequency_penalty }),
+                        ...(options.stop && { stop: options.stop }),
+                        ...(options.seed && { seed: options.seed })
+                    }
+                })
             };
 
             logger.log('transform-request', {
@@ -35,12 +40,17 @@ class OllamaProvider extends BaseProvider {
                 model: options.model,
                 prompt: messages,
                 stream: false,
-                options: {
-                    temperature: options.temperature || undefined,
-                    top_k: options.top_k || undefined,
-                    top_p: options.top_p || undefined,
-                    ...(options.max_tokens && { num_ctx: options.max_tokens })
-                }
+                ...(Object.keys(options).length > 0 && {
+                    options: {
+                        ...(options.temperature && { temperature: options.temperature }),
+                        ...(options.top_k && { top_k: options.top_k }),
+                        ...(options.top_p && { top_p: options.top_p }),
+                        ...(options.max_tokens && { num_ctx: options.max_tokens }),
+                        ...(options.frequency_penalty && { repeat_penalty: options.frequency_penalty }),
+                        ...(options.stop && { stop: options.stop }),
+                        ...(options.seed && { seed: options.seed })
+                    }
+                })
             };
 
             logger.log('transform-request', {

@@ -4,7 +4,7 @@ const logger = require('../utils/logger');
 class OpenAIProvider extends BaseProvider {
     constructor(config) {
         super(config);
-        this.apiKey = config.api_key;
+        this.apiKey = config.api_key; // Will receive rotated key from router
     }
 
     async listModels() {

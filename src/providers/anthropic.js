@@ -3,7 +3,7 @@ const BaseProvider = require('./base');
 class AnthropicProvider extends BaseProvider {
     constructor(config) {
         super(config);
-        this.apiKey = config.api_key;
+        this.apiKey = config.api_key; // Will receive rotated key from router
         this.apiVersion = config.api_version;
     }
 

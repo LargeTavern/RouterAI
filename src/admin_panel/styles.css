@@ -121,6 +121,7 @@ body {
     align-items: center;
     padding: 1rem;
     border-bottom: 1px solid var(--border-color);
+    cursor: default; /* Changed from move to default */
 }
 
 .connection-info {
@@ -277,7 +278,7 @@ body {
     color: var(--secondary-color);
     user-select: none;
     font-family: monospace;
-    padding-right: 0.5rem;
+    padding: 0.5rem; /* Added padding to make it easier to grab */
 }
 
 .connection-item.dragging {

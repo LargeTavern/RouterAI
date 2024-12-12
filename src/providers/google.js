@@ -5,7 +5,7 @@ class GoogleAIProvider extends BaseProvider {
     constructor(config) {
         super(config);
         this.baseUrl = config.baseUrl;
-        this.apiKey = config.api_key;
+        this.apiKey = config.api_key; // Will receive rotated key from router
     }
 
     transformRequest(messages, options = {}, type = 'chat') {
@@ -26,36 +26,71 @@ class GoogleAIProvider extends BaseProvider {
         let processedMessages = [];
         let systemMessage = '';
 
+        let firstSystemsFound = [];
+        let hasUserOrAssistant = false;
+
         for (const msg of messages) {
-            if (msg.role === 'system') {
-                systemMessage = msg.content;
+            if (msg.role === 'system' && !hasUserOrAssistant) {
+                firstSystemsFound.push(msg.content);
             } else {
+                hasUserOrAssistant = true;
                 processedMessages.push(msg);
             }
         }
 
-        // If there's a system message, prepend it to the first user message
-        if (systemMessage && processedMessages.length > 0) {
-            const firstUserMsgIndex = processedMessages.findIndex(m => m.role === 'user');
-            if (firstUserMsgIndex !== -1) {
-                processedMessages[firstUserMsgIndex].content = 
-                    `${systemMessage}\n\n${processedMessages[firstUserMsgIndex].content}`;
-            }
-        }
+        // Combine all initial system messages
+        systemMessage = firstSystemsFound.join('\n');
 
         const transformedRequest = {
             contents: processedMessages.map(msg => ({
                 role: roleMap[msg.role],
                 parts: [{ text: msg.content }]
             })),
-            generationConfig: {
-                temperature: options.temperature || 0.7,
-                ...(options.max_tokens && { maxOutputTokens: options.max_tokens }),
-                topK: options.top_k || 40,
-                topP: options.top_p || 0.95,
-                stopSequences: options.stop || []
-            },
+            ...(systemMessage && {
+                systemInstruction: {
+                    parts: [{ text: systemMessage }]
+                }
+            }),
+            ...(Object.keys(options).length > 0 && {
+                generationConfig: {
+                    ...(options.temperature && { temperature: options.temperature }),
+                    ...(options.max_tokens && { maxOutputTokens: options.max_tokens }),
+                    ...(options.top_k && { topK: options.top_k }),
+                    ...(options.top_p && { topP: options.top_p }),
+                    ...(options.presence_penalty && { presencePenalty: options.presence_penalty }),
+                    ...(options.frequency_penalty && { frequencyPenalty: options.frequency_penalty }),
+                    ...(options.stop && { stopSequences: options.stop })
+                }
+            }),
             safetySettings: [
+                {
+                    category: "HARM_CATEGORY_UNSPECIFIED",
+                    threshold: "BLOCK_NONE"
+                },
+                {
+                    category: "HARM_CATEGORY_DEROGATORY",
+                    threshold: "BLOCK_NONE"
+                },
+                {
+                    category: "HARM_CATEGORY_TOXICITY",
+                    threshold: "BLOCK_NONE"
+                },
+                {
+                    category: "HARM_CATEGORY_VIOLENCE",
+                    threshold: "BLOCK_NONE"
+                },
+                {
+                    category: "HARM_CATEGORY_SEXUAL",
+                    threshold: "BLOCK_NONE"
+                },
+                {
+                    category: "HARM_CATEGORY_MEDICAL",
+                    threshold: "BLOCK_NONE"
+                },
+                {
+                    category: "HARM_CATEGORY_DANGEROUS",
+                    threshold: "BLOCK_NONE"
+                },
                 {
                     category: "HARM_CATEGORY_HARASSMENT",
                     threshold: "BLOCK_NONE"
@@ -70,6 +105,10 @@ class GoogleAIProvider extends BaseProvider {
                 },
                 {
                     category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    threshold: "BLOCK_NONE"
+                },
+                {
+                    category: "HARM_CATEGORY_CIVIC_INTEGRITY",
                     threshold: "BLOCK_NONE"
                 }
             ]
@@ -153,24 +192,31 @@ class GoogleAIProvider extends BaseProvider {
     }
 
     async listModels() {
+        const endpoint = `${this.baseUrl}/v1beta/models?key=${this.apiKey}`;
+        const response = await fetch(endpoint, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw this.handleError(response);
+        }
+
+        const result = await response.json();
+        
+        // Transform to match OpenAI format while preserving Google's metadata
         return {
-            data: [
-                {
-                    id: 'gemini-1.5-flash',
-                    object: 'model',
-                    owned_by: 'google'
-                },
-                {
-                    id: 'text-embedding-004',
-                    object: 'model',
-                    owned_by: 'google'
-                },
-                {
-                    id: 'gemini-2.0-flash-exp',
-                    object: 'model',
-                    owned_by: 'google'
+            data: result.models.map(model => ({
+                id: model.name.replace('models/', ''),
+                object: 'model',
+                owned_by: 'google',
+                // Preserve Google's model metadata as additional properties
+                google_metadata: {
+                    ...model
                 }
-            ]
+            }))
         };
     }
 

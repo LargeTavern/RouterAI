@@ -8,21 +8,35 @@ class AIRouter {
         this.providers = new Map();
         this.modelToSource = new Map();
         this.configPath = path.join(__dirname, '../config.json');
-        this.loadConfig();
-        this.watchConfig();
-        this.refreshModels();
         this.rateLimits = new Map();
         this.retryDelays = new Map();
+        this.keyIndexes = new Map();
+        
+        this.config = {}; // Initialize config before loading
+        this.loadConfig();
+        this.watchConfig();
+        this.refreshModels().catch(error => {
+            logger.log('init-error', error.message, 'router');
+        });
     }
 
     loadConfig() {
         try {
-            // Clear require cache to ensure fresh load
-            delete require.cache[this.configPath];
-            this.config = require(this.configPath);
+            const configContent = fs.readFileSync(this.configPath, 'utf8');
+            try {
+                this.config = JSON.parse(configContent);
+            } catch (parseError) {
+                logger.log('config-parse-error', `Failed to parse config.json: ${parseError.message}`, 'router');
+                // Keep existing config if parsing fails
+                if (!this.config) {
+                    this.config = {};
+                }
+            }
         } catch (error) {
-            console.error('Failed to load config.json:', error);
-            this.config = {};
+            logger.log('config-read-error', `Failed to read config.json: ${error.message}`, 'router');
+            if (!this.config) {
+                this.config = {};
+            }
         }
     }
 
@@ -38,6 +52,27 @@ class AIRouter {
         });
     }
 
+    rotateApiKey(providerKey, config) {
+        // If api_keys array exists, perform rotation
+        if (config.api_keys && Array.isArray(config.api_keys) && config.api_keys.length > 0) {
+            if (!this.keyIndexes.has(providerKey)) {
+                this.keyIndexes.set(providerKey, 0);
+            }
+
+            let currentIndex = this.keyIndexes.get(providerKey);
+            const key = config.api_keys[currentIndex];
+            
+            // Update index for next use
+            currentIndex = (currentIndex + 1) % config.api_keys.length;
+            this.keyIndexes.set(providerKey, currentIndex);
+
+            return key;
+        }
+
+        // If no api_keys array is provided, this URL doesn't use key rotation
+        return null;
+    }
+
     async refreshModels() {
         this.modelToSource.clear();
         
@@ -47,10 +82,16 @@ class AIRouter {
             try {
                 if (!this.providers.has(providerKey)) {
                     const Provider = require(`./providers/${source.type}`);
-                    this.providers.set(providerKey, new Provider({
+                    const providerConfig = {
                         ...source,
-                        baseUrl
-                    }));
+                        baseUrl,
+                    };
+                    // Only set api_key if rotation is available
+                    const rotatedKey = this.rotateApiKey(providerKey, source);
+                    if (rotatedKey) {
+                        providerConfig.api_key = rotatedKey;
+                    }
+                    this.providers.set(providerKey, new Provider(providerConfig));
                 }
 
                 const provider = this.providers.get(providerKey);
@@ -127,10 +168,16 @@ class AIRouter {
             try {
                 if (!this.providers.has(providerKey)) {
                     const Provider = require(`./providers/${selected.config.type}`);
-                    this.providers.set(providerKey, new Provider({
+                    const providerConfig = {
                         ...selected.config,
-                        baseUrl: selected.baseUrl
-                    }));
+                        baseUrl: selected.baseUrl,
+                    };
+                    // Only set api_key if rotation is available
+                    const rotatedKey = this.rotateApiKey(providerKey, selected.config);
+                    if (rotatedKey) {
+                        providerConfig.api_key = rotatedKey;
+                    }
+                    this.providers.set(providerKey, new Provider(providerConfig));
                 }
 
                 const provider = this.providers.get(providerKey);
