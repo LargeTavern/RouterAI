@@ -43,19 +43,16 @@ class AnthropicProvider extends BaseProvider {
                 {
                     id: 'claude-2',
                     object: 'model',
-                    created: 1683758123,
                     owned_by: 'anthropic'
                 },
                 {
                     id: 'claude-2.1',
                     object: 'model',
-                    created: 1699884123,
                     owned_by: 'anthropic'
                 },
                 {
                     id: 'claude-instant-1.2',
                     object: 'model',
-                    created: 1683758123,
                     owned_by: 'anthropic'
                 }
             ]

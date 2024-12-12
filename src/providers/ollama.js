@@ -1,4 +1,5 @@
 const BaseProvider = require('./base');
+const logger = require('../utils/logger');
 
 class OllamaProvider extends BaseProvider {
     constructor(config) {
@@ -6,26 +7,67 @@ class OllamaProvider extends BaseProvider {
         this.baseUrl = config.baseUrl;
     }
 
-    transformRequest(messages, options = {}) {
-        return {
-            model: options.model,
-            messages: messages.map(msg => ({
-                role: msg.role,
-                content: msg.content
-            })),
-            stream: false,
-            options: {
-                temperature: options.temperature || 0.7,
-                top_k: options.top_k || 40,
-                top_p: options.top_p || 0.95,
-                num_ctx: options.max_tokens || 1000
-            }
-        };
+    transformRequest(messages, options = {}, type = 'chat') {
+        if (type === 'chat') {
+            const transformed = {
+                model: options.model,
+                messages: messages.map(msg => ({
+                    role: msg.role,
+                    content: msg.content
+                })),
+                stream: false,
+                options: {
+                    temperature: options.temperature || 0.7,
+                    top_k: options.top_k || 40,
+                    top_p: options.top_p || 0.95,
+                    ...(options.max_tokens && { num_ctx: options.max_tokens })
+                }
+            };
+
+            logger.log('transform-request', {
+                original: { messages, options },
+                transformed
+            }, 'ollama');
+
+            return transformed;
+        } else if (type === 'completion') {
+            const transformed = {
+                model: options.model,
+                prompt: messages,
+                stream: false,
+                options: {
+                    temperature: options.temperature || undefined,
+                    top_k: options.top_k || undefined,
+                    top_p: options.top_p || undefined,
+                    ...(options.max_tokens && { num_ctx: options.max_tokens })
+                }
+            };
+
+            logger.log('transform-request', {
+                original: { messages, options },
+                transformed
+            }, 'ollama');
+
+            return transformed;
+        } else if (type === 'embeddings') {
+            const transformed = {
+                model: options.model,
+                prompt: messages
+            };
+
+            logger.log('transform-request', {
+                original: { messages, options },
+                transformed
+            }, 'ollama');
+
+            return transformed;
+        }
     }
 
     transformResponse(response, modelId, type = 'chat') {
+        let transformed;
         if (type === 'embeddings') {
-            return {
+            transformed = {
                 object: 'list',
                 data: Array.isArray(response) ? response.map((embedding, i) => ({
                     object: 'embedding',
@@ -38,40 +80,65 @@ class OllamaProvider extends BaseProvider {
                 }],
                 model: modelId
             };
+        } else if (type === 'completion') {
+            transformed = {
+                id: `ollama-${Date.now()}`,
+                object: 'completion',
+                created: Date.now(),
+                model: modelId,
+                choices: [{
+                    text: response.response,
+                    finish_reason: 'stop',
+                    index: 0
+                }]
+            };
+        } else {
+            transformed = {
+                id: `ollama-${Date.now()}`,
+                object: 'chat.completion',
+                created: Date.now(),
+                model: modelId,
+                choices: [{
+                    message: {
+                        role: 'assistant',
+                        content: response.message.content
+                    },
+                    finish_reason: 'stop',
+                    index: 0
+                }],
+                usage: {
+                    prompt_tokens: -1,
+                    completion_tokens: -1,
+                    total_tokens: -1
+                }
+            };
         }
 
-        return {
-            id: `ollama-${Date.now()}`,
-            object: 'chat.completion',
-            created: Date.now(),
-            model: modelId,
-            choices: [{
-                message: {
-                    role: 'assistant',
-                    content: response.message.content
-                },
-                finish_reason: 'stop',
-                index: 0
-            }],
-            usage: {
-                prompt_tokens: -1,
-                completion_tokens: -1,
-                total_tokens: -1
-            }
-        };
+        logger.log('transform-response', {
+            type,
+            original: response,
+            transformed
+        }, 'ollama');
+
+        return transformed;
     }
 
     async listModels() {
+        logger.log('provider-request', { endpoint: 'tags' }, 'ollama');
+        
         const response = await fetch(`${this.baseUrl}/api/tags`);
         
         if (!response.ok) {
+            const error = await response.text();
+            logger.log('provider-error', error, 'ollama');
             throw this.handleError(response);
         }
 
-        const { models } = await response.json();
+        const result = await response.json();
+        logger.log('provider-response', result, 'ollama');
 
         return {
-            data: models.map(model => ({
+            data: result.models.map(model => ({
                 id: model.name.split(':')[0],
                 object: 'model',
                 created: Date.now(),
@@ -81,55 +148,51 @@ class OllamaProvider extends BaseProvider {
     }
 
     async chatCompletion(messages, options = {}) {
-        const endpoint = `${this.baseUrl}/api/chat`;
-        const response = await fetch(endpoint, {
+        const requestData = this.transformRequest(messages, options);
+        logger.log('provider-request', {
+            endpoint: 'chat',
+            body: requestData
+        }, 'ollama');
+
+        const response = await fetch(`${this.baseUrl}/api/chat`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(this.transformRequest(messages, options))
+            body: JSON.stringify(requestData)
         });
 
         if (!response.ok) {
+            const error = await response.text();
+            logger.log('provider-error', error, 'ollama');
             throw this.handleError(response);
         }
 
         const result = await response.json();
+        logger.log('provider-response', result, 'ollama');
         return this.transformResponse(result, options.model);
     }
 
     async textCompletion(prompt, options = {}) {
-        const endpoint = `${this.baseUrl}/api/generate`;
-        const response = await fetch(endpoint, {
+        const requestData = this.transformRequest(prompt, options, 'completion');
+        logger.log('provider-request', {
+            endpoint: 'generate',
+            body: requestData
+        }, 'ollama');
+
+        const response = await fetch(`${this.baseUrl}/api/generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: options.model,
-                prompt: prompt,
-                stream: false,
-                options: {
-                    temperature: options.temperature || undefined,
-                    top_k: options.top_k || undefined,
-                    top_p: options.top_p || undefined,
-                    num_ctx: options.max_tokens || undefined
-                }
-            })
+            body: JSON.stringify(requestData)
         });
 
         if (!response.ok) {
+            const error = await response.text();
+            logger.log('provider-error', error, 'ollama');
             throw this.handleError(response);
         }
 
         const result = await response.json();
-        return {
-            id: `ollama-${Date.now()}`,
-            object: 'completion',
-            created: Date.now(),
-            model: options.model,
-            choices: [{
-                text: result.response,
-                finish_reason: 'stop',
-                index: 0
-            }]
-        };
+        logger.log('provider-response', result, 'ollama');
+        return this.transformResponse(result, options.model, 'completion');
     }
 
     async embeddings(input, options = {}) {
@@ -137,21 +200,26 @@ class OllamaProvider extends BaseProvider {
         const embeddingsResults = [];
 
         for (const text of inputs) {
-            const endpoint = `${this.baseUrl}/api/embeddings`;
-            const response = await fetch(endpoint, {
+            const requestData = this.transformRequest(text, options, 'embeddings');
+            logger.log('provider-request', {
+                endpoint: 'embeddings',
+                body: requestData
+            }, 'ollama');
+
+            const response = await fetch(`${this.baseUrl}/api/embeddings`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model: options.model,
-                    prompt: text
-                })
+                body: JSON.stringify(requestData)
             });
 
             if (!response.ok) {
+                const error = await response.text();
+                logger.log('provider-error', error, 'ollama');
                 throw this.handleError(response);
             }
 
             const result = await response.json();
+            logger.log('provider-response', result, 'ollama');
             embeddingsResults.push(result.embedding);
         }
         
