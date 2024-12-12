@@ -64,34 +64,6 @@ class GoogleAIProvider extends BaseProvider {
             }),
             safetySettings: [
                 {
-                    category: "HARM_CATEGORY_UNSPECIFIED",
-                    threshold: "BLOCK_NONE"
-                },
-                {
-                    category: "HARM_CATEGORY_DEROGATORY",
-                    threshold: "BLOCK_NONE"
-                },
-                {
-                    category: "HARM_CATEGORY_TOXICITY",
-                    threshold: "BLOCK_NONE"
-                },
-                {
-                    category: "HARM_CATEGORY_VIOLENCE",
-                    threshold: "BLOCK_NONE"
-                },
-                {
-                    category: "HARM_CATEGORY_SEXUAL",
-                    threshold: "BLOCK_NONE"
-                },
-                {
-                    category: "HARM_CATEGORY_MEDICAL",
-                    threshold: "BLOCK_NONE"
-                },
-                {
-                    category: "HARM_CATEGORY_DANGEROUS",
-                    threshold: "BLOCK_NONE"
-                },
-                {
                     category: "HARM_CATEGORY_HARASSMENT",
                     threshold: "BLOCK_NONE"
                 },
@@ -293,9 +265,7 @@ class GoogleAIProvider extends BaseProvider {
                                         try {
                                             // Properly reconstruct the JSON string
                                             const jsonStr = this.lines
-                                                .filter(l => l.trim()) // Remove empty lines
                                                 .join('')  // Join without newlines
-                                                .replace(/\s+/g, ' '); // Normalize whitespace
                                             
                                             const data = JSON.parse(jsonStr);
                                             if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
