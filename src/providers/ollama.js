@@ -40,17 +40,15 @@ class OllamaProvider extends BaseProvider {
                 model: options.model,
                 prompt: messages,
                 stream: false,
-                ...(Object.keys(options).length > 0 && {
-                    options: {
-                        ...(options.temperature && { temperature: options.temperature }),
-                        ...(options.top_k && { top_k: options.top_k }),
-                        ...(options.top_p && { top_p: options.top_p }),
-                        ...(options.max_tokens && { num_ctx: options.max_tokens }),
-                        ...(options.frequency_penalty && { repeat_penalty: options.frequency_penalty }),
-                        ...(options.stop && { stop: options.stop }),
-                        ...(options.seed && { seed: options.seed })
-                    }
-                })
+                options: {
+                    ...(options.temperature && { temperature: options.temperature }),
+                    ...(options.top_k && { top_k: options.top_k }),
+                    ...(options.top_p && { top_p: options.top_p }),
+                    ...(options.max_tokens && { num_ctx: options.max_tokens }),
+                    ...(options.frequency_penalty && { repeat_penalty: options.frequency_penalty }),
+                    ...(options.stop && { stop: options.stop }),
+                    ...(options.seed && { seed: options.seed })
+                }
             };
 
             logger.log('transform-request', {

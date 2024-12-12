@@ -41,6 +41,7 @@ class GoogleAIProvider extends BaseProvider {
         // Combine all initial system messages
         systemMessage = firstSystemsFound.join('\n');
 
+        const isPaLM = options.model?.toLowerCase().includes('bison');
         const transformedRequest = {
             contents: processedMessages.map(msg => ({
                 role: roleMap[msg.role],
@@ -51,39 +52,70 @@ class GoogleAIProvider extends BaseProvider {
                     parts: [{ text: systemMessage }]
                 }
             }),
-            ...(Object.keys(options).length > 0 && {
-                generationConfig: {
-                    ...(options.temperature && { temperature: options.temperature }),
-                    ...(options.max_tokens && { maxOutputTokens: options.max_tokens }),
-                    ...(options.top_k && { topK: options.top_k }),
-                    ...(options.top_p && { topP: options.top_p }),
-                    ...(options.presence_penalty && { presencePenalty: options.presence_penalty }),
-                    ...(options.frequency_penalty && { frequencyPenalty: options.frequency_penalty }),
-                    ...(options.stop && { stopSequences: options.stop })
-                }
-            }),
-            safetySettings: [
-                {
-                    category: "HARM_CATEGORY_HARASSMENT",
-                    threshold: "BLOCK_NONE"
-                },
-                {
-                    category: "HARM_CATEGORY_HATE_SPEECH",
-                    threshold: "BLOCK_NONE"
-                },
-                {
-                    category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-                    threshold: "BLOCK_NONE"
-                },
-                {
-                    category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-                    threshold: "BLOCK_NONE"
-                },
-                {
-                    category: "HARM_CATEGORY_CIVIC_INTEGRITY",
-                    threshold: "BLOCK_NONE"
-                }
-            ]
+            generationConfig: {
+                ...(options.temperature && { temperature: options.temperature }),
+                ...(options.max_tokens && { maxOutputTokens: options.max_tokens }),
+                ...(options.top_k && { topK: options.top_k }),
+                ...(options.top_p && { topP: options.top_p }),
+                ...(options.presence_penalty && { presencePenalty: options.presence_penalty }),
+                ...(options.frequency_penalty && { frequencyPenalty: options.frequency_penalty }),
+                ...(options.stop && { stopSequences: options.stop })
+            },
+            ...(isPaLM ? {
+                safetySettings: [
+                    {
+                        category: "HARM_CATEGORY_UNSPECIFIED",
+                        threshold: "BLOCK_NONE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_DEROGATORY",
+                        threshold: "BLOCK_NONE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_TOXICITY",
+                        threshold: "BLOCK_NONE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_VIOLENCE",
+                        threshold: "BLOCK_NONE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_SEXUAL",
+                        threshold: "BLOCK_NONE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_MEDICAL",
+                        threshold: "BLOCK_NONE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_DANGEROUS",
+                        threshold: "BLOCK_NONE"
+                    }
+                ]
+            } : {
+                safetySettings: [
+                    {
+                        category: "HARM_CATEGORY_HARASSMENT",
+                        threshold: "BLOCK_NONE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_HATE_SPEECH",
+                        threshold: "BLOCK_NONE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                        threshold: "BLOCK_NONE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                        threshold: "BLOCK_NONE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_CIVIC_INTEGRITY",
+                        threshold: "BLOCK_NONE"
+                    }
+                ]
+            })
         };
 
         logger.log('transform-request', {
