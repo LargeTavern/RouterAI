@@ -7,15 +7,35 @@ class AIRouter {
     constructor() {
         this.providers = new Map();
         this.modelToSource = new Map();
+        this.configPath = path.join(__dirname, '../config.json');
+        this.loadConfig();
+        this.watchConfig();
+        this.refreshModels();
+        this.rateLimits = new Map();
+        this.retryDelays = new Map();
+    }
+
+    loadConfig() {
         try {
-            this.config = JSON.parse(fs.readFileSync(path.join(__dirname, '../config.json'), 'utf8'));
+            // Clear require cache to ensure fresh load
+            delete require.cache[this.configPath];
+            this.config = require(this.configPath);
         } catch (error) {
             console.error('Failed to load config.json:', error);
             this.config = {};
         }
-        this.refreshModels();
-        this.rateLimits = new Map();
-        this.retryDelays = new Map();
+    }
+
+    watchConfig() {
+        fs.watch(this.configPath, (eventType, filename) => {
+            if (eventType === 'change') {
+                logger.log('config-change', 'Config file changed, reloading...', 'router');
+                this.loadConfig();
+                this.refreshModels().catch(error => {
+                    logger.log('config-reload-error', error.message, 'router');
+                });
+            }
+        });
     }
 
     async refreshModels() {

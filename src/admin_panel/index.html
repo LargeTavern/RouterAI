@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RouterAI Admin Panel</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="header">
+        <div class="header-left">
+            <a href="#" class="logo">RouterAI</a>
+            <nav class="nav-links">
+                <a href="#" class="nav-link active">API connections</a>
+                <a href="#" class="nav-link">Security</a>
+            </nav>
+        </div>
+        <button class="button button-secondary" id="checkUpdates">Check for updates</button>
+    </header>
+
+    <main class="main-content">
+        <div class="section-header">
+            <h1>API connections</h1>
+            <button class="button button-primary" id="addNew">+ Add new</button>
+        </div>
+
+        <div class="search-filter">
+            <input type="text" class="search-input" placeholder="Search connections...">
+            <button class="button button-secondary">Filter</button>
+        </div>
+
+        <div class="connections-list">
+            <!-- Connection items will be loaded dynamically -->
+        </div>
+    </main>
+
+    <script src="js/main.js"></script>
+</body>
+</html>

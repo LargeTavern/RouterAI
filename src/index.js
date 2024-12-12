@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const router = require('./router');
 const logger = require('./utils/logger');
@@ -10,6 +11,8 @@ process.env.LOGGING = process.env.LOGGING || 'true';
 process.env.PORT = process.env.PORT || '3000';
 
 const app = express();
+
+app.use('/admin', express.static(path.join(__dirname, 'admin_panel')));
 
 // Increased limit
 app.use(express.json({
@@ -187,28 +190,17 @@ app.post('/v1/embeddings', (req, res) => {
         });
 });
 
-app.post('/admin/refresh-models', (req, res) => {
-    logger.log('app-request', { endpoint: 'refresh-models', body: req.body }, 'application');
-    
-    router.refreshModels()
-        .then(() => {
-            const response = {
-                success: true,
-                models: router.getAvailableModels()
-            };
-            logger.log('app-response', response, 'application');
-            jsonResponse(res, 200, response);
-        })
-        .catch(error => {
-            logger.log('app-error', error.message, 'application');
-            jsonResponse(res, 500, {
-                error: {
-                    message: error.message,
-                    type: "internal_server_error"
-                }
-            });
-        });
+app.post('/api/reload-config', (req, res) => {
+    try {
+        router.loadConfig();
+        router.refreshModels();
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: { message: error.message } });
+    }
 });
+
+app.use('/admin', require('./admin'));
 
 const PORT = process.env.PORT;
 app.listen(PORT, () => {
